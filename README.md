@@ -4,3 +4,4 @@ Based on https://www.shadertoy.com/view/4ljGD1
 > npm install
 ### Start
 > npm start
+### Click anywhere to start audio
