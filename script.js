@@ -67,7 +67,6 @@
     analyser.fftSize = 1024;
     const bufferLength = analyser.frequencyBinCount;
     const frequencyData = new Uint8Array(bufferLength);
-    console.log(frequencyData);
 
     // Create texture to hold audio frequency data
     const audioTexture = gl.createTexture();
