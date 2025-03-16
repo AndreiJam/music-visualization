@@ -62,21 +62,26 @@
 
     // Setup audio data and texture
     const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    audioContext.suspend();
     const analyser = audioContext.createAnalyser();
+    analyser.fftSize = 1024;
     const bufferLength = analyser.frequencyBinCount;
     const frequencyData = new Uint8Array(bufferLength);
+    console.log(frequencyData);
 
     // Create texture to hold audio frequency data
     const audioTexture = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, audioTexture);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 512, 512, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+
     // Play audio and connect to analyser
     const audio = new Audio('assets/Nick_Zaleski-Always.mp3');
-    audio.crossOrigin = "anonymous";
+    audio.pause();
 
     // Get uniform locations
     const iResolutionLoc = gl.getUniformLocation(shaderProgram, "iResolution");
@@ -87,22 +92,20 @@
     const updateAudioTexture = () => {
         analyser.getByteFrequencyData(frequencyData);
 
-        // Upload frequency data to texture
-        gl.bindTexture(gl.TEXTURE_2D, audioTexture);
-        gl.texImage2D(iChannel0Loc, 0, gl.LUMINANCE, bufferLength, 1, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, frequencyData);
+        gl.uniform1i(iChannel0Loc, 0);
 
         // Upload frequency data to texture
         gl.bindTexture(gl.TEXTURE_2D, audioTexture);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, bufferLength, 1, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, frequencyData);
 
         // Bind the texture to the iChannel0 uniform
-        gl.uniform1i(iChannel0Loc, 0); // Use texture unit 0
-        gl.activeTexture(gl.TEXTURE0); // Activate texture unit 0
-        gl.bindTexture(gl.TEXTURE_2D, audioTexture); // Bind the texture
+        // gl.uniform1i(iChannel0Loc, 0); // Use texture unit 0
+        // gl.activeTexture(gl.TEXTURE0); // Activate texture unit 0
+        // gl.bindTexture(gl.TEXTURE_2D, audioTexture); // Bind the texture
     };
 
     // Start render loop
-    let startTime = Date.now();
+    let startTime;
     function render() {
         const elapsedTime = (Date.now() - startTime) / 1000;
 
@@ -121,8 +124,6 @@
 
         requestAnimationFrame(render);
     }
-
-    render();
 
     // Function to resize the canvas
     function resizeCanvas() {
@@ -145,21 +146,80 @@
     // Call the function once at the start
     resizeCanvas();
 
-    let mediaElementSource;
+    let audioSource;
     // Handle user interaction to start Web Audio
     document.body.addEventListener("click", () => {
         if (audioContext.state === "suspended") {
             audio.play();
+            startTime = Date.now();
+            render();
             audioContext.resume().then(() => {
-                if (!mediaElementSource) {
-                    mediaElementSource = audioContext.createMediaElementSource(audio);
-                    mediaElementSource.connect(analyser);
+                if (!audioSource) {
+                    audioSource = audioContext.createMediaElementSource(audio);
+                    audioSource.connect(analyser);
                 }
                 analyser.connect(audioContext.destination);
+                startRecording();
             });
-        } else {
-            audio.pause();
-            audioContext.suspend();
         }
-    });
+    }, { once: true });
+
+    // Recording Setup
+    let mediaRecorder;
+    let recordedChunks = [];
+    let maxDuration = 60 * 1000; // Store only last 60 sec
+    let canvasStream;
+
+    // Function to start recording
+    async function startRecording() {
+        // Get the canvas stream
+        canvasStream = canvas.captureStream(30); // 30 FPS
+
+        const destination = audioContext.createMediaStreamDestination();
+        audioSource.connect(destination);
+
+        // Merge audio and canvas streams
+        const combinedStream = new MediaStream([...canvasStream.getTracks(), ...destination.stream.getTracks()]);
+
+        // Create MediaRecorder
+        mediaRecorder = new MediaRecorder(combinedStream, { mimeType: "video/webm; codecs=vp9" });
+
+        // Store recorded data in chunks
+        mediaRecorder.ondataavailable = (event) => {
+            if (event.data.size > 0) {
+                recordedChunks.push(event.data);
+            }
+
+            // Keep only the last 60 seconds
+            let totalTime = Date.now() - startTime;
+            if (totalTime > maxDuration) {
+                recordedChunks.shift(); // Remove oldest frame
+            }
+        };
+
+        // Start recording
+        mediaRecorder.start(1000); // Save every second
+    }
+
+    // Function to stop and save recording
+    function saveRecording() {
+        if (recordedChunks.length === 0) {
+            console.warn("No recording available.");
+            return;
+        }
+
+        // Combine chunks into a single Blob
+        const recordedBlob = new Blob(recordedChunks, { type: "video/webm" });
+        const url = URL.createObjectURL(recordedBlob);
+
+        // Create download link
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "recording.webm";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    }
+    const exportButton = document.getElementById("exportButton");
+    exportButton.addEventListener("click", saveRecording);
 })();
