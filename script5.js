@@ -69,10 +69,10 @@
     // Create texture to hold audio frequency data
     const audioTexture = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, audioTexture);
-    // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-    // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
     // Play audio and connect to analyser
     const audio = new Audio('assets/Nick_Zaleski-Always.mp3');
@@ -90,6 +90,15 @@
         // Upload frequency data to texture
         gl.bindTexture(gl.TEXTURE_2D, audioTexture);
         gl.texImage2D(iChannel0Loc, 0, gl.LUMINANCE, bufferLength, 1, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, frequencyData);
+
+        // Upload frequency data to texture
+        gl.bindTexture(gl.TEXTURE_2D, audioTexture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, bufferLength, 1, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, frequencyData);
+
+        // Bind the texture to the iChannel0 uniform
+        gl.uniform1i(iChannel0Loc, 0); // Use texture unit 0
+        gl.activeTexture(gl.TEXTURE0); // Activate texture unit 0
+        gl.bindTexture(gl.TEXTURE_2D, audioTexture); // Bind the texture
     };
 
     // Start render loop
@@ -98,8 +107,7 @@
         const elapsedTime = (Date.now() - startTime) / 1000;
 
         // Update audio texture
-        // updateAudioTexture();
-        gl.uniform1f(iChannel0Loc, frequencyData);
+        updateAudioTexture();
 
         // Set resolution uniform
         gl.uniform3f(iResolutionLoc, canvas.width, canvas.height, 1);
