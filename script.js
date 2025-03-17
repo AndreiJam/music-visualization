@@ -96,11 +96,6 @@
         // Upload frequency data to texture
         gl.bindTexture(gl.TEXTURE_2D, audioTexture);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, bufferLength, 1, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, frequencyData);
-
-        // Bind the texture to the iChannel0 uniform
-        // gl.uniform1i(iChannel0Loc, 0); // Use texture unit 0
-        // gl.activeTexture(gl.TEXTURE0); // Activate texture unit 0
-        // gl.bindTexture(gl.TEXTURE_2D, audioTexture); // Bind the texture
     };
 
     // Start render loop
